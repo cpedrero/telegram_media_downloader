@@ -9,7 +9,7 @@ import pyrogram
 import yaml
 from pyrogram.types import Audio, Document, Photo, Video, VideoNote, Voice
 from rich.logging import RichHandler
-
+from os import getenv
 from utils.file_management import get_next_name, manage_duplicate_file
 from utils.log import LogFilter
 from utils.meta import print_meta
@@ -173,7 +173,7 @@ async def download_media(
     int
         Current message id.
     """
-    for retry in range(3):
+    for retry in range(5):
         try:
             if message.media is None:
                 return message.message_id
@@ -305,15 +305,19 @@ async def begin_import(config: dict, pagination_limit: int) -> dict:
     dict
         Updated configuration to be written into config file.
     """
+    API_HASH = getenv("API_HASH", config["api_hash"])
+    CHAT_ID = getenv("CHAT_ID", config["chat_id"])
+    API_ID = getenv("API_ID", config["api_id"])
+
     client = pyrogram.Client(
         "media_downloader",
-        api_id=config["api_id"],
-        api_hash=config["api_hash"],
+        api_id=API_ID,
+        api_hash=API_HASH,
     )
     await client.start()
     last_read_message_id: int = config["last_read_message_id"]
     messages_iter = client.iter_history(
-        config["chat_id"],
+        CHAT_ID,
         offset_id=last_read_message_id,
         reverse=True,
     )
@@ -322,7 +326,7 @@ async def begin_import(config: dict, pagination_limit: int) -> dict:
     if config["ids_to_retry"]:
         logger.info("Downloading files failed during last run...")
         skipped_messages: list = await client.get_messages(  # type: ignore
-            chat_id=config["chat_id"], message_ids=config["ids_to_retry"]
+            chat_id=CHAT_ID, message_ids=config["ids_to_retry"]
         )
         for message in skipped_messages:
             pagination_count += 1
